@@ -36,7 +36,7 @@ function ensureSettings() {
   const rows = db.prepare('SELECT key, value FROM settings').all();
   const current = Object.fromEntries(rows.map((row) => [row.key, row.value]));
   for (const [key, value] of Object.entries(defaultSettings)) {
-    if (!current[key]) {
+    if (!Object.prototype.hasOwnProperty.call(current, key)) {
       db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(key, String(value));
     }
   }
