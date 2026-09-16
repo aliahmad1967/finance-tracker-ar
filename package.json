@@ -1,0 +1,26 @@
+{
+  "name": "finance-tracker-ar",
+  "version": "1.0.0",
+  "description": "Arabic personal finance tracker with SQLite persistence and app memory",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "finance",
+    "budget",
+    "sqlite",
+    "express",
+    "arabic"
+  ],
+  "author": "GitHub Copilot",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "better-sqlite3": "^11.7.0",
+    "express": "^4.21.2"
+  }
+}

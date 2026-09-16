@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>متابع الميزانية الشخصية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { cairo: ['Cairo', 'sans-serif'] },
+                },
+            },
+        };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 min-h-screen text-slate-800">
+    <div class="max-w-4xl mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-4 sm:space-y-6">
+        <nav class="bg-white rounded-2xl shadow p-3 sm:p-4 flex items-center justify-between gap-2">
+            <button id="prevMonthBtn" aria-label="الشهر السابق"
+                class="w-11 h-11 grid place-items-center rounded-xl bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-600 text-xl font-bold transition active:scale-95">›</button>
+            <div class="text-center">
+                <p class="text-xs font-semibold text-slate-400">الشهر المحدد</p>
+                <p id="monthLabel" class="text-lg sm:text-xl font-extrabold text-slate-800"></p>
+            </div>
+            <button id="nextMonthBtn" aria-label="الشهر التالي"
+                class="w-11 h-11 grid place-items-center rounded-xl bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-600 text-xl font-bold transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none">‹</button>
+        </nav>
+
+        <header
+            class="bg-gradient-to-l from-indigo-600 to-violet-600 rounded-2xl shadow-lg p-6 sm:p-8 text-center text-white">
+            <p class="text-indigo-200 text-sm font-semibold mb-1">الرصيد الجاري للشهر</p>
+            <p id="runningBalance" class="text-4xl sm:text-5xl font-extrabold tracking-tight">0 د.ع</p>
+            <p class="text-indigo-200 text-xs mt-3">يُحدَّث تلقائيًا مع كل معاملة جديدة</p>
+        </header>
+
+        <section class="grid grid-cols-1 lg:grid-cols-[1.3fr_0.7fr] gap-4">
+            <div class="bg-white rounded-2xl shadow p-5 sm:p-6 hover:shadow-md transition-shadow">
+                <h2 id="formTitle" class="text-lg font-bold text-slate-800 mb-4">إضافة معاملة جديدة</h2>
+                <form id="transactionForm" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="sm:col-span-2">
+                        <label for="description" class="block text-sm font-semibold text-slate-600 mb-1">وصف
+                            المعاملة</label>
+                        <input type="text" id="description" required placeholder="مثال: مشتريات أسبوعية"
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" />
+                    </div>
+
+                    <div>
+                        <label for="amount" class="block text-sm font-semibold text-slate-600 mb-1">المبلغ</label>
+                        <input type="number" id="amount" min="0.01" step="0.01" required placeholder="0"
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" />
+                    </div>
+
+                    <div>
+                        <label for="type" class="block text-sm font-semibold text-slate-600 mb-1">النوع</label>
+                        <select id="type" required
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            <option value="income">دخل</option>
+                            <option value="expense">مصروف</option>
+                        </select>
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label for="category" class="block text-sm font-semibold text-slate-600 mb-1">الفئة</label>
+                        <select id="category" required
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            <option value="food">طعام</option>
+                            <option value="utilities">فواتير وخدمات</option>
+                            <option value="salary">راتب</option>
+                            <option value="entertainment">ترفيه</option>
+                            <option value="transport">مواصلات</option>
+                        </select>
+                    </div>
+
+                    <div class="sm:col-span-2 flex flex-col sm:flex-row gap-3">
+                        <button type="submit" id="submitBtn"
+                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3.5 rounded-xl shadow transition">➕
+                            إضافة المعاملة</button>
+                        <button type="button" id="cancelEditBtn"
+                            class="hidden flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3.5 rounded-xl transition">إلغاء
+                            التعديل</button>
+                    </div>
+                </form>
+            </div>
+
+            <aside class="bg-white rounded-2xl shadow p-5 sm:p-6 hover:shadow-md transition-shadow">
+                <h3 class="text-lg font-bold text-slate-800 mb-3">الذاكرة والتفضيلات</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="monthlyTarget" class="block text-sm font-semibold text-slate-600 mb-1">الهدف
+                            الشهري</label>
+                        <input id="monthlyTarget" type="number" min="0" step="0.01" placeholder="0"
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" />
+                    </div>
+                    <div>
+                        <label for="currencySelect"
+                            class="block text-sm font-semibold text-slate-600 mb-1">العملة</label>
+                        <select id="currencySelect"
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            <option value="د.ع">د.ع</option>
+                            <option value="$">$</option>
+                            <option value="€">€</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="themeSelect" class="block text-sm font-semibold text-slate-600 mb-1">المظهر</label>
+                        <select id="themeSelect"
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                            <option value="light">فاتح</option>
+                            <option value="dark">داكن</option>
+                        </select>
+                    </div>
+                    <button id="saveSettingsBtn" type="button"
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow transition">💾
+                        حفظ التفضيلات</button>
+                </div>
+            </aside>
+        </section>
+
+        <section>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                <div class="bg-white rounded-2xl shadow p-5 text-center hover:shadow-md transition-shadow">
+                    <p class="text-sm font-semibold text-slate-500 mb-1">إجمالي الدخل</p>
+                    <p id="totalIncome" class="text-2xl font-extrabold text-emerald-600">0 د.ع</p>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow p-5 text-center hover:shadow-md transition-shadow">
+                    <p class="text-sm font-semibold text-slate-500 mb-1">إجمالي المصروفات</p>
+                    <p id="totalExpenses" class="text-2xl font-extrabold text-rose-500">0 د.ع</p>
+                </div>
+
+                <div id="netCard"
+                    class="bg-emerald-50 rounded-2xl shadow p-5 text-center transition-colors duration-300 hover:shadow-md">
+                    <p id="netLabel" class="text-sm font-semibold text-emerald-600 mb-1">صافي الرصيد</p>
+                    <p id="netBalance" class="text-2xl font-extrabold text-emerald-600">0 د.ع</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-white rounded-2xl shadow p-5 sm:p-6 hover:shadow-md transition-shadow">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">توزيع المصروفات حسب الفئة</h2>
+            <div class="relative w-full max-w-sm mx-auto">
+                <canvas id="expenseChart"></canvas>
+            </div>
+            <p id="chartEmpty" class="hidden text-center text-sm text-slate-400 mt-2">لا توجد مصروفات مسجلة في هذا الشهر
+            </p>
+        </section>
+
+        <section class="bg-white rounded-2xl shadow p-5 sm:p-6 hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <h2 class="text-lg font-bold text-slate-800">سجل المعاملات</h2>
+                <div class="text-xs text-slate-500">الهدف: <span id="targetSummary">0 د.ع</span></div>
+            </div>
+
+            <div class="relative mb-4">
+                <input type="text" id="searchInput" placeholder="ابحث بالوصف أو الفئة..."
+                    class="w-full rounded-xl border border-slate-300 ps-11 pe-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" />
+                <svg class="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none"
+                    stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <path stroke-linecap="round" d="m20 20-3.5-3.5"></path>
+                </svg>
+            </div>
+
+            <div class="flex gap-2 mb-4">
+                <button data-filter="all"
+                    class="filter-btn flex-1 py-2.5 rounded-xl text-sm font-bold transition">الكل</button>
+                <button data-filter="income"
+                    class="filter-btn flex-1 py-2.5 rounded-xl text-sm font-bold transition">الدخل</button>
+                <button data-filter="expense"
+                    class="filter-btn flex-1 py-2.5 rounded-xl text-sm font-bold transition">المصروفات</button>
+            </div>
+
+            <ul id="transactionList" class="divide-y divide-slate-100 custom-scroll max-h-[420px] overflow-y-auto"></ul>
+            <p id="listEmpty" class="hidden text-center text-sm text-slate-400 py-6">لا توجد معاملات مطابقة في هذا الشهر
+            </p>
+        </section>
+    </div>
+
+    <script>
+        const categories = {
+            food: { label: 'طعام', badge: 'bg-amber-100 text-amber-800', chart: '#f59e0b' },
+            utilities: { label: 'فواتير وخدمات', badge: 'bg-sky-100 text-sky-800', chart: '#0ea5e9' },
+            salary: { label: 'راتب', badge: 'bg-emerald-100 text-emerald-800', chart: '#10b981' },
+            entertainment: { label: 'ترفيه', badge: 'bg-fuchsia-100 text-fuchsia-800', chart: '#d946ef' },
+            transport: { label: 'مواصلات', badge: 'bg-orange-100 text-orange-800', chart: '#f97316' },
+        };
+
+        const types = {
+            income: { label: 'دخل', sign: '+', text: 'text-emerald-600', dot: 'bg-emerald-500' },
+            expense: { label: 'مصروف', sign: '-', text: 'text-rose-500', dot: 'bg-rose-500' },
+        };
+
+        let transactions = [];
+        let settings = {};
+        let filterState = { search: '', type: 'all' };
+        let editingId = null;
+        let viewDate = new Date();
+        let expenseChart;
+
+        const monthLabelEl = document.getElementById('monthLabel');
+        const prevMonthBtn = document.getElementById('prevMonthBtn');
+        const nextMonthBtn = document.getElementById('nextMonthBtn');
+        const listEl = document.getElementById('transactionList');
+        const listEmptyEl = document.getElementById('listEmpty');
+        const balanceEl = document.getElementById('runningBalance');
+        const totalIncomeEl = document.getElementById('totalIncome');
+        const totalExpensesEl = document.getElementById('totalExpenses');
+        const netBalanceEl = document.getElementById('netBalance');
+        const netCardEl = document.getElementById('netCard');
+        const netLabelEl = document.getElementById('netLabel');
+        const chartEmptyEl = document.getElementById('chartEmpty');
+        const formEl = document.getElementById('transactionForm');
+        const formTitleEl = document.getElementById('formTitle');
+        const submitBtnEl = document.getElementById('submitBtn');
+        const cancelEditBtnEl = document.getElementById('cancelEditBtn');
+        const searchInputEl = document.getElementById('searchInput');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const monthlyTargetInput = document.getElementById('monthlyTarget');
+        const currencySelect = document.getElementById('currencySelect');
+        const themeSelect = document.getElementById('themeSelect');
+        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        const targetSummaryEl = document.getElementById('targetSummary');
+
+        function formatMoney(value, overrideCurrency = null) {
+            const currency = overrideCurrency || settings.currency || 'د.ع';
+            return `${new Intl.NumberFormat('ar-IQ', { maximumFractionDigits: 0 }).format(Number(value || 0))} ${currency}`;
+        }
+
+        function formatDate(iso) {
+            return new Intl.DateTimeFormat('ar-IQ', { day: 'numeric', month: 'short' }).format(new Date(iso + 'T00:00:00'));
+        }
+
+        function monthKey(date = viewDate) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            return `${year}-${month}`;
+        }
+
+        function renderMonthNav() {
+            monthLabelEl.textContent = new Intl.DateTimeFormat('ar-IQ', { month: 'long', year: 'numeric' }).format(viewDate);
+            const now = new Date();
+            const isCurrentMonth = viewDate.getFullYear() === now.getFullYear() && viewDate.getMonth() === now.getMonth();
+            nextMonthBtn.disabled = isCurrentMonth;
+        }
+
+        function getFiltered(list) {
+            const q = filterState.search.trim().toLowerCase();
+            return list.filter((t) => {
+                const matchType = filterState.type === 'all' || t.type === filterState.type;
+                const matchSearch = !q || t.description.toLowerCase().includes(q) || categories[t.category]?.label.toLowerCase().includes(q);
+                return matchType && matchSearch;
+            });
+        }
+
+        function renderBalance(net) {
+            balanceEl.textContent = formatMoney(net);
+            balanceEl.classList.toggle('text-rose-300', net < 0);
+        }
+
+        function renderStats(data) {
+            const income = Number(data.income || 0);
+            const expenses = Number(data.expenses || 0);
+            const net = income - expenses;
+
+            totalIncomeEl.textContent = formatMoney(income);
+            totalExpensesEl.textContent = formatMoney(expenses);
+            netBalanceEl.textContent = formatMoney(net);
+
+            if (net >= 0) {
+                netCardEl.className = 'bg-emerald-50 rounded-2xl shadow p-5 text-center transition-colors duration-300 hover:shadow-md';
+                netLabelEl.className = 'text-sm font-semibold text-emerald-600 mb-1';
+                netBalanceEl.className = 'text-2xl font-extrabold text-emerald-600';
+            } else {
+                netCardEl.className = 'bg-rose-50 rounded-2xl shadow p-5 text-center transition-colors duration-300 hover:shadow-md';
+                netLabelEl.className = 'text-sm font-semibold text-rose-600 mb-1';
+                netBalanceEl.className = 'text-2xl font-extrabold text-rose-600';
+            }
+
+            const target = Number(settings.monthlyTarget || 0);
+            const remaining = target - expenses;
+            targetSummaryEl.textContent = remaining >= 0 ? `${formatMoney(remaining)} متبقي` : `${formatMoney(Math.abs(remaining))} فوق الهدف`;
+        }
+
+        function renderChart(data) {
+            const breakdown = data.breakdown || {};
+            const labels = Object.keys(breakdown).map((key) => categories[key]?.label || key);
+            const values = Object.values(breakdown);
+            const colors = Object.keys(breakdown).map((key) => categories[key]?.chart || '#94a3b8');
+
+            chartEmptyEl.classList.toggle('hidden', values.length > 0);
+
+            if (!expenseChart) {
+                expenseChart = new Chart(document.getElementById('expenseChart'), {
+                    type: 'pie',
+                    data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 2, borderColor: '#ffffff' }] },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { font: { family: 'Cairo', weight: '600' }, padding: 16, usePointStyle: true } },
+                            tooltip: { callbacks: { label: (context) => ` ${context.label}: ${formatMoney(context.parsed)}` } },
+                        },
+                    },
+                });
+            }
+
+            expenseChart.data.labels = labels;
+            expenseChart.data.datasets[0].data = values;
+            expenseChart.data.datasets[0].backgroundColor = colors;
+            expenseChart.update();
+        }
+
+        function renderFilterButtons() {
+            filterBtns.forEach((btn) => {
+                const active = btn.dataset.filter === filterState.type;
+                btn.className = 'filter-btn flex-1 py-2.5 rounded-xl text-sm font-bold transition active:scale-95 ' + (active ? 'bg-indigo-600 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200');
+            });
+        }
+
+        function renderList(items) {
+            const filtered = getFiltered(items);
+            listEl.innerHTML = '';
+            listEmptyEl.classList.toggle('hidden', filtered.length > 0);
+
+            filtered.forEach((t) => {
+                const cat = categories[t.category] || { label: t.category, badge: 'bg-slate-100 text-slate-700' };
+                const typ = types[t.type] || types.expense;
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between gap-3 py-3';
+                li.innerHTML = `
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="w-2.5 h-2.5 rounded-full shrink-0 ${typ.dot}"></span>
+              <div class="min-w-0">
+                <p class="font-semibold text-slate-800 truncate">${t.description}</p>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="text-xs font-bold px-2.5 py-0.5 rounded-full ${cat.badge}">${cat.label}</span>
+                  <span class="text-xs text-slate-400">${formatDate(t.date)}</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <div class="text-left">
+                <p class="font-bold ${typ.text}">${typ.sign} ${formatMoney(t.amount)}</p>
+                <p class="text-xs text-slate-400">${typ.label}</p>
+              </div>
+              <button data-edit="${t.id}" title="تعديل" aria-label="تعديل" class="w-10 h-10 grid place-items-center rounded-xl bg-slate-100 hover:bg-indigo-100 text-slate-500 hover:text-indigo-600 transition active:scale-95">✏️</button>
+              <button data-delete="${t.id}" title="حذف" aria-label="حذف" class="w-10 h-10 grid place-items-center rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 transition active:scale-95">🗑️</button>
+            </div>
+          `;
+                listEl.appendChild(li);
+            });
+        }
+
+        async function loadSettings() {
+            const response = await fetch('/api/settings');
+            settings = await response.json();
+            monthlyTargetInput.value = settings.monthlyTarget || 0;
+            currencySelect.value = settings.currency || 'د.ع';
+            themeSelect.value = settings.theme || 'light';
+            applyTheme(settings.theme || 'light');
+        }
+
+        async function loadTransactions() {
+            const response = await fetch(`/api/transactions?month=${monthKey()}`);
+            transactions = await response.json();
+            const summaryResponse = await fetch(`/api/summary?month=${monthKey()}`);
+            const summary = await summaryResponse.json();
+            renderMonthNav();
+            renderBalance(summary.net || 0);
+            renderStats(summary);
+            renderChart(summary);
+            renderList(transactions);
+            renderFilterButtons();
+        }
+
+        function applyTheme(theme) {
+            const body = document.body;
+            if (theme === 'dark') {
+                body.classList.add('bg-slate-900', 'text-slate-100');
+                body.classList.remove('bg-slate-100', 'text-slate-800');
+            } else {
+                body.classList.remove('bg-slate-900', 'text-slate-100');
+                body.classList.add('bg-slate-100', 'text-slate-800');
+            }
+        }
+
+        async function saveSettings() {
+            const payload = {
+                monthlyTarget: monthlyTargetInput.value,
+                currency: currencySelect.value,
+                theme: themeSelect.value,
+                lastMonth: monthKey(),
+            };
+
+            const raw = await fetch('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            settings = await raw.json();
+            applyTheme(settings.theme || 'light');
+            await loadTransactions();
+        }
+
+        function setEditingMode(on) {
+            if (on) {
+                formTitleEl.textContent = 'تعديل المعاملة';
+                submitBtnEl.textContent = '💾 حفظ التعديلات';
+                submitBtnEl.className = 'flex-1 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold py-3.5 rounded-xl shadow transition';
+                cancelEditBtnEl.classList.remove('hidden');
+            } else {
+                editingId = null;
+                formTitleEl.textContent = 'إضافة معاملة جديدة';
+                submitBtnEl.textContent = '➕ إضافة المعاملة';
+                submitBtnEl.className = 'flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3.5 rounded-xl shadow transition';
+                cancelEditBtnEl.classList.add('hidden');
+            }
+        }
+
+        prevMonthBtn.addEventListener('click', () => {
+            viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1);
+            loadTransactions();
+        });
+
+        nextMonthBtn.addEventListener('click', () => {
+            viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
+            loadTransactions();
+        });
+
+        searchInputEl.addEventListener('input', (e) => {
+            filterState.search = e.target.value;
+            renderList(transactions);
+        });
+
+        filterBtns.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                filterState.type = btn.dataset.filter;
+                renderList(transactions);
+                renderFilterButtons();
+            });
+        });
+
+        listEl.addEventListener('click', async (e) => {
+            const editBtn = e.target.closest('[data-edit]');
+            const deleteBtn = e.target.closest('[data-delete]');
+
+            if (editBtn) {
+                const id = Number(editBtn.dataset.edit);
+                const item = transactions.find((x) => x.id === id);
+                if (!item) return;
+                editingId = id;
+                document.getElementById('description').value = item.description;
+                document.getElementById('amount').value = item.amount;
+                document.getElementById('type').value = item.type;
+                document.getElementById('category').value = item.category;
+                setEditingMode(true);
+                formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            if (deleteBtn) {
+                const id = Number(deleteBtn.dataset.delete);
+                const item = transactions.find((x) => x.id === id);
+                if (!item) return;
+                const ok = confirm(`هل أنت متأكد من حذف "${item.description}" بقيمة ${formatMoney(item.amount)}؟`);
+                if (!ok) return;
+                const response = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    if (editingId === id) {
+                        setEditingMode(false);
+                        formEl.reset();
+                    }
+                    await loadTransactions();
+                }
+            }
+        });
+
+        cancelEditBtnEl.addEventListener('click', () => {
+            setEditingMode(false);
+            formEl.reset();
+        });
+
+        formEl.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const amount = Number(document.getElementById('amount').value);
+            if (!(amount > 0)) return;
+
+            const payload = {
+                description: document.getElementById('description').value.trim(),
+                amount,
+                type: document.getElementById('type').value,
+                category: document.getElementById('category').value,
+                date: new Date(viewDate.getFullYear(), viewDate.getMonth(), new Date().getDate()).toISOString().slice(0, 10),
+            };
+
+            let response;
+            if (editingId !== null) {
+                response = await fetch(`/api/transactions/${editingId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                setEditingMode(false);
+            } else {
+                response = await fetch('/api/transactions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+            }
+
+            if (response.ok) {
+                formEl.reset();
+                await loadTransactions();
+            }
+        });
+
+        saveSettingsBtn.addEventListener('click', saveSettings);
+
+        (async function init() {
+            await loadSettings();
+            await loadTransactions();
+        })();
+    </script>
+</body>
+
+</html>
